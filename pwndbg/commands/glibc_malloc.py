@@ -901,6 +901,113 @@ def tcachebins(addr: int | None = None, verbose: bool = False) -> None:
 
 
 parser = argparse.ArgumentParser(
+    description="""Visualize the contents of a tcache as a histogram, bucketed by chunk size.
+
+Each row is one size bucket: the chunk size, the number of chunks in the
+bucket, a bar proportional to the bucket's fill level, and the bucket's chain.
+
+Default to the current thread's tcache.""",
+)
+parser.add_argument("addr", nargs="?", type=int, help="The address of the tcache bins.")
+parser.add_argument(
+    "-v", "--verbose", action="store_true", help="Show all tcachebins, including empty ones"
+)
+parser.add_argument(
+    "-w",
+    "--width",
+    type=int,
+    default=32,
+    help="Width of a full count bar, in characters.",
+)
+
+
+@pwndbg.commands.Command(parser, category=CommandCategory.GLIBC_MALLOC)
+@OnlyForSaneHeapWithTcache
+def tcachevis(addr: int | None = None, verbose: bool = False, width: int = 32) -> None:
+    """Visualize the contents of a tcache as a histogram, bucketed by chunk size,
+    default to the current thread's tcache.
+    """
+    allocator = pwndbg.aglib.heap.glibc.get_allocator()
+
+    tcachebins_ = allocator.tcachebins(addr)
+
+    if tcachebins_ is None:
+        print_no_tcache_bins_found_error()
+        return
+
+    # The number of chunks a tcache bin can hold is capped at mp_.tcache_count
+    # (defaults to 7); fall back to that default if the field is unavailable.
+    try:
+        max_slots = int(allocator.mp["tcache_count"])
+    except Exception:
+        max_slots = 7
+
+    safe_lnk = pwndbg.libc.glibc.check_safe_linking(pwndbg.libc.version())
+
+    # Collect the buckets: (size label, count, formatted chain).
+    buckets: list[tuple[str, int, str]] = []
+    for size, b in tcachebins_.bins.items():
+        count = b.count if b.count is not None else 0
+        if not verbose and count == 0 and b.fd_chain == [0]:
+            continue
+
+        if isinstance(size, int):
+            if b.variant is BinVariant.TCACHE_LARGE:
+                size_label = f"{size >> 1:#x}-{size:#x}"
+            else:
+                size_label = hex(size)
+        else:
+            size_label = str(size)
+
+        if count == 0 and b.fd_chain == [0]:
+            formatted_chain = ""
+        else:
+            formatted_chain = pwndbg.chain.format(
+                b.fd_chain[0],
+                limit=int(pwndbg.config.heap_dereference_limit),
+                offset=allocator.tcache_next_offset,
+                safe_linking=safe_lnk,
+            )
+
+        buckets.append((size_label, count, formatted_chain))
+
+    print(ctx_color.banner("tcachevis"))
+
+    tcache = allocator.get_tcache(addr)
+    tid = pwndbg.aglib.proc.thread_id()
+    if tcache:
+        print(
+            message.notice(
+                f"tcache is pointing to: {message.hint(hex(int(tcache.address)))} for thread {message.hint(tid)}"
+            )
+        )
+
+    if not buckets:
+        print(message.hint("empty"))
+        return
+
+    width = max(width, 1)
+    label_width = max(len(label) for label, _, _ in buckets)
+    # A full bar represents a full bucket; corrupted counts may exceed the cap.
+    bar_scale = max(max_slots, *(count for _, count, _ in buckets), 1)
+
+    for size_label, count, formatted_chain in buckets:
+        filled = min(width, round(count * width / bar_scale))
+        bar = "█" * filled + "░" * (width - filled)
+        if count >= max_slots:
+            bar = message.success(bar)
+        elif count == 0:
+            bar = message.hint(bar)
+        else:
+            bar = message.warn(bar)
+
+        line = f"{message.hint(size_label.ljust(label_width))} [{count:3d}/{max_slots:3d}] {bar}"
+        if formatted_chain:
+            line += f"  {formatted_chain}"
+        print(line)
+
+
+parser = argparse.ArgumentParser(
     description="Find candidate fake fast or tcache chunks overlapping the specified address."
 )
 parser.add_argument("target_address", type=int, help="Address of the word-sized value to overlap.")

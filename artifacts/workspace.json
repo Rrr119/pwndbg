@@ -1,0 +1,17 @@
+{
+  "root": "/home/dev/feedback/uid29559",
+  "B": "/home/dev/feedback/uid29559",
+  "sha": "056f9c2e3387a66e4f3db0c81e4ab3aabb184b9c",
+  "wslDistro": "Ubuntu-26.04",
+  "source": {
+    "owner": "pwndbg",
+    "repo": "pwndbg",
+    "sha": "056f9c2e3387a66e4f3db0c81e4ab3aabb184b9c"
+  },
+  "fork": {
+    "owner": "Rrr119",
+    "repo": "pwndbg",
+    "cloneUrl": "https://github.com/Rrr119/pwndbg.git"
+  },
+  "at": "2026-11-20T06:30:58.330Z"
+}

@@ -61,6 +61,7 @@
 -  [smallbins](glibc_heap/smallbins.md) - Print the contents of an arena's smallbins.
 -  [tcache](glibc_heap/tcache.md) - Print a thread's tcache contents.
 -  [tcachebins](glibc_heap/tcachebins.md) - Print the contents of a tcache.
+-  [tcachevis](glibc_heap/tcachevis.md) - Visualize the contents of a tcache as a histogram, bucketed by chunk size.
 -  [top-chunk](glibc_heap/top-chunk.md) - Print relevant information about an arena's top chunk.
 -  [try-free](glibc_heap/try-free.md) - Check what would happen if free was called with given address.
 -  [unsortedbin](glibc_heap/unsortedbin.md) - Print the contents of an arena's unsortedbin.
